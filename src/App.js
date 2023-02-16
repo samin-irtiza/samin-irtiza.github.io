@@ -1,23 +1,13 @@
-import logo from './logo.svg';
 import './App.css';
-
+import { Card,Container,Box,Paper,Typography } from '@mui/material';
+import CssBaseline from '@mui/material/CssBaseline';
+import {PagePaper} from "./components/PagePaper";
+import { color } from '@mui/system';
 function App() {
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <CssBaseline />
     </div>
   );
 }
