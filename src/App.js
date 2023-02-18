@@ -8,10 +8,12 @@ function App() {
   console.log(theme);
   return (
     <div className="App">
-      <Container>
-        <Paper
-          sx={{
-            backgroundColor: "primary.main",
+      <Container maxWidth="xl">
+        <Paper 
+          sx={{ m:5, p:4,
+            backgroundColor: "secondary.main",
+            color:"primary.main",
+            borderRadius:"10px"
           }}
         >
           <div style={{ display: "grid", justifyItems: "center" }}>
