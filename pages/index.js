@@ -142,7 +142,7 @@ export default function Home() {
           </div>
           <div className="flex flex-col gap-10 py-10 lg:flex-row lg:flex-wrap ">
             <div className="basis-1/3 flex-1 rounded-lg shadow-black shadow-lg transform transition duration-200 hover:scale-110">
-              <a href="https://eternull404.pythonanywhere.com/" target="_blank">
+              <a href="https://eternull404.pythonanywhere.com/" target="_blank" rel="noreferrer">
               <Image
                 className="rounded-lg object-cover "
                 width={"100%"}
