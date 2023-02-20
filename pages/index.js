@@ -2,6 +2,7 @@ import Head from "next/head";
 import { AiFillLinkedin, AiFillGithub, AiFillFacebook } from "react-icons/ai";
 import { BsFillMoonStarsFill } from "react-icons/bs";
 import { BsFillSunFill } from "react-icons/bs";
+import { IoMdDownload } from "react-icons/io";
 import { useState } from "react";
 import avatar from "../public/avatar.png";
 import code from "../public/code.png";
@@ -10,10 +11,6 @@ import consulting from "../public/consulting.png";
 import Image from "next/image";
 import web1 from "../public/web1.png";
 import web2 from "../public/web2.png";
-import web3 from "../public/web3.png";
-import web4 from "../public/web4.png";
-import web5 from "../public/web5.png";
-import web6 from "../public/web6.png";
 export default function Home() {
   const [darkMode, setDarkMode] = useState(true);
 
@@ -44,10 +41,11 @@ export default function Home() {
               </li>
               <li>
                 <a
-                  className="bg-gradient-to-r from-cyan-500 text- to-teal-500 text-white px-4 py-2 border-none rounded-md ml-8"
+                  className="bg-gradient-to-r from-cyan-500 text- to-teal-500 text-white px-4 py-2 border-none rounded-md ml-8 flex"
                   href="/Md._Samin_Irtiza_resume.pdf"
                 >
-                  Resume
+                  <IoMdDownload className="text-2xl justify-between mr-2"/>
+                  Resume / CV
                 </a>
               </li>
             </ul>
@@ -56,7 +54,7 @@ export default function Home() {
             <Image src={avatar} layout="fill" objectFit="cover" />
           </div>
           <div className="text-center p-10 py-10">
-            <h2 className="mb-8 font-barcelony text-5xl py-2 text-teal-600 font-semibold dark:text-teal-400 md:text-6xl">
+            <h2 className="mb-8 font-barcelony text-5xl py-2 text-teal-800 font-bold dark:text-teal-400 md:text-6xl">
               Samin Irtiza
             </h2>
             <h3 className="font-burtons text-2xl py-2 dark:text-white md:text-3xl">
@@ -88,7 +86,7 @@ export default function Home() {
             </p>
           </div>
           <div className="lg:flex gap-10">
-            <div className="text-center shadow-lg p-10 rounded-xl my-10  dark:bg-white flex-1">
+            <div className="text-center shadow-black shadow-md p-10 rounded-xl my-10  dark:bg-amber-400 flex-1">
               <Image src={design} width={100} height={100} />
               <h3 className="text-lg font-medium pt-8 pb-2  ">
                 Beautiful Designs
@@ -97,13 +95,13 @@ export default function Home() {
                 Creating elegant designs suited for your needs following core
                 design theory.
               </p>
-              <h4 className="py-4 text-teal-600">Design Tools I Use</h4>
+              <h4 className="py-4 font-semibold text-violet-900">Design Tools I Use</h4>
               <p className="text-gray-800 py-1">GIMP</p>
               <p className="text-gray-800 py-1">Inkscape</p>
               <p className="text-gray-800 py-1">Figma</p>
               <p className="text-gray-800 py-1">Stable Diffusion</p>
             </div>
-            <div className="text-center shadow-lg p-10 rounded-xl my-10 dark:bg-white flex-1">
+            <div className="text-center shadow-black shadow-md p-10 rounded-xl my-10 dark:bg-amber-400 flex-1">
               <Image src={code} width={100} height={100} />
               <h3 className="text-lg font-medium pt-8 pb-2 ">
                 Code your dream project
@@ -112,22 +110,22 @@ export default function Home() {
                 Do you have an idea for your next great website? Let's make it a
                 reality.
               </p>
-              <h4 className="py-4 text-teal-600">Coding Tools I Use</h4>
+              <h4 className="py-4 font-semibold text-violet-900">Coding Tools I Use</h4>
               <p className="text-gray-800 py-1">Django</p>
               <p className="text-gray-800 py-1">React</p>
               <p className="text-gray-800 py-1">NextJs</p>
               <p className="text-gray-800 py-1">NodeJs</p>
             </div>
-            <div className="text-center shadow-lg p-10 rounded-xl my-10 dark:bg-white flex-1">
+            <div className="text-center shadow-black shadow-md p-10 rounded-xl my-10 dark:bg-amber-400 flex-1">
               <Image src={consulting} width={100} height={100} />
               <h3 className="text-lg font-medium pt-8 pb-2 ">Consulting</h3>
               <p className="py-2">
                 Are you interested in feedback for your current project? I can
                 give you tips and tricks to level it up.
               </p>
-              <h4 className="py-4 text-teal-600">Contact me</h4>
+              <h4 className="py-4 font-semibold text-violet-900">Contact me</h4>
               <a
-                className=" text-white font-semibold bg-lime-600 px-4 rounded-md py-1 border-lime-700"
+                className=" text-white font-semibold bg-lime-800 px-4 rounded-md py-1 border-lime-700"
                 href="https://www.fiverr.com/share/kr0VlQ"
               >
                 Fiverr
@@ -139,12 +137,11 @@ export default function Home() {
           <div>
             <h3 className="text-3xl py-1 dark:text-white ">Portofolio</h3>
             <p className="text-md py-2 leading-8 text-gray-800 dark:text-gray-200">
-              I offer from a wide range of services, including brand design,
-              programming and teaching.
+                Here are some of my works
             </p>
           </div>
-          <div className="flex flex-col gap-10 py-10 lg:flex-row lg:flex-wrap">
-            <div className="basis-1/3 flex-1 ">
+          <div className="flex flex-col gap-10 py-10 lg:flex-row lg:flex-wrap ">
+            <div className="basis-1/3 flex-1 rounded-lg shadow-black shadow-lg">
               <Image
                 className="rounded-lg object-cover"
                 width={"100%"}
@@ -153,7 +150,7 @@ export default function Home() {
                 src={web1}
               />
             </div>
-            <div className="basis-1/3 flex-1">
+            <div className="basis-1/3 flex-1 rounded-lg shadow-black shadow-lg">
               <Image
                 className="rounded-lg object-cover"
                 width={"100%"}
