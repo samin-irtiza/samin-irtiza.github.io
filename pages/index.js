@@ -68,9 +68,9 @@ export default function Home() {
               <a href="https://www.linkedin.com/in/samin-irtiza/">
                 <AiFillLinkedin />
               </a>
-              <a href="https://www.facebook.com/saminirtiza.arnob/">
+              {/* <a href="https://www.facebook.com/saminirtiza.arnob/">
                 <AiFillFacebook />
-              </a>
+              </a> */}
               <a href="https://www.github.com/samin-irtiza/">
                 <AiFillGithub />
               </a>
