@@ -1,0 +1,223 @@
+[
+  {
+    "id": "blog/cilium-ebpf-kubernetes-networking",
+    "title": "What Is Cilium? A Beginner's Guide to Kubernetes Networking with eBPF",
+    "description": "If you use Kubernetes, you have probably heard about Cilium and eBPF but are not sure what they do. Here is a practical introduction that assumes no kernel expertise.",
+    "body": "If you work with Kubernetes you have probably seen the name \"Cilium\" come up in conversations. It is now a supported networking option on GKE, EKS, and AKS with growing adoption. Maybe someone at a meetup told you to switch to it, but you were not sure what it actually does.\n\nThis post is for that situation. I will explain what Cilium is, what problem it solves, and how eBPF (the technology underneath) fits in. You do not need kernel expertise to follow along.",
+    "tags": [
+      "kubernetes",
+      "networking",
+      "infrastructure"
+    ],
+    "type": "blog",
+    "url": "/blog/cilium-ebpf-kubernetes-networking",
+    "date": "2026-06-19T00:00:00.000Z",
+    "section": ""
+  },
+  {
+    "id": "blog/cilium-ebpf-kubernetes-networking#kubernetes-networking-basics",
+    "title": "What Is Cilium? A Beginner's Guide to Kubernetes Networking with eBPF",
+    "description": "Kubernetes Networking Basics",
+    "body": "Before we talk about Cilium, we need to cover how Kubernetes handles networking by default.\n\nEach pod in Kubernetes gets its own IP address. Pods can talk to each other directly using those IPs, but there is a catch: pod IPs change whenever a pod restarts, scales, or moves to a different node. You cannot hardcode them.\n\nKubernetes solves this with a Service, which provides a stable IP and DNS name that points to a set of pods. When traffic reaches the Service IP, it gets forwarded to one of the backend pods. The component that does this forwarding is called kube-proxy.\n\nKube-proxy traditionally uses iptables, a Linux tool for filtering and routing network packets, to rewrite packet destinations. This works fine at small scale, but it has problems when your cluster grows beyond a few dozen services.\n\nKube-proxy also supports an IPVS mode, which uses hash tables for O(1) lookups instead of linear iptables rule traversal. IPVS solves the same scaling problem that Cilium addresses, without requiring eBPF or a modern kernel. Many clusters use IPVS as a middle ground. The tradeoff is that IPVS lacks the advanced security and observability features that Cilium provides on top of its performance improvements.\n\nThe other piece of the puzzle is the CNI plugin. CNI (Container Network Interface) is a standard for configuring network interfaces in containers. The CNI plugin assigns IPs to pods and makes sure traffic can flow between them. Popular CNI plugins include Flannel, Calico, Weave, and Cilium.\n\nTo summarize: kube-proxy handles Service IP forwarding, and the CNI plugin handles pod networking. Cilium replaces both.",
+    "tags": [
+      "kubernetes",
+      "networking",
+      "infrastructure"
+    ],
+    "type": "blog",
+    "url": "/blog/cilium-ebpf-kubernetes-networking#kubernetes-networking-basics",
+    "date": "2026-06-19T00:00:00.000Z",
+    "section": "Kubernetes Networking Basics"
+  },
+  {
+    "id": "blog/cilium-ebpf-kubernetes-networking#where-iptables-hits-its-limits",
+    "title": "What Is Cilium? A Beginner's Guide to Kubernetes Networking with eBPF",
+    "description": "Where iptables Hits Its Limits",
+    "body": "Kube-proxy with iptables works well for small clusters. As your cluster grows, the approach starts showing strain.\n\nEvery time a Service is added or removed, kube-proxy rewrites the entire iptables ruleset. With a handful of services the ruleset is small. With hundreds of services it becomes thousands of rules. With thousands of services, tens of thousands. Each ruleset rewrite consumes noticeable CPU across all nodes, and in busy clusters these spikes compound.\n\nThe per-packet impact is more nuanced. Iptables uses connection tracking, so only the first packet of a connection traverses the full ruleset. Established packets are handled by the conntrack table and bypass the rule chain. This means the latency penalty is real but mostly affects new connections, not every packet.\n\nKubernetes 1.33 introduced a stable nftables proxy mode for kube-proxy (enabled by default on new clusters), which replaces the legacy iptables backend with the newer nftables API. It improves ruleset update time and packet processing for large clusters, though the improvement mainly shows at tens of thousands of services. It requires kernel 5.13 or later.\n\nThree problems still emerge at scale:\nCPU spikes on ruleset updates. Every service change triggers an iptables ruleset reload across all nodes. These spikes grow with the size of the ruleset and compound during rolling deployments.\nNew connection latency under heavy churn. Environments with frequent pod restarts, autoscaling, or short-lived connections feel the linear rule traversal on every new connection setup.\nNo application-level visibility. Iptables operates at the network layer. It sees IP addresses and ports but cannot understand HTTP paths, gRPC methods, or database query types.\n\nThe diagram above shows the difference visually. On the left, the traditional iptables path sends every packet through multiple kernel layers (Netfilter, iptables rules, routing decisions) before it reaches the destination container. On the right, eBPF programs in the kernel handle the packet in a single fast path, bypassing the layers that cause the performance problems described here.",
+    "tags": [
+      "kubernetes",
+      "networking",
+      "infrastructure"
+    ],
+    "type": "blog",
+    "url": "/blog/cilium-ebpf-kubernetes-networking#where-iptables-hits-its-limits",
+    "date": "2026-06-19T00:00:00.000Z",
+    "section": "Where iptables Hits Its Limits"
+  },
+  {
+    "id": "blog/cilium-ebpf-kubernetes-networking#what-ebpf-is",
+    "title": "What Is Cilium? A Beginner's Guide to Kubernetes Networking with eBPF",
+    "description": "What eBPF Is",
+    "body": "eBPF (extended Berkeley Packet Filter) is a Linux kernel feature that lets you run small, safe programs directly inside the kernel. You do not need to change kernel source code or load kernel modules.\n\nThink of it as a way to extend the kernel's behavior. Normally, the kernel decides how to process network packets and your applications only interact with them after the kernel is done. With eBPF, you can inject your own logic into that packet processing path.\n\nThe practical difference from iptables: eBPF programs are compiled, verified for safety by the kernel, and run as native machine code. They do not get slower as you add more of them. Adding a hundred services has roughly the same performance cost as adding one.",
+    "tags": [
+      "kubernetes",
+      "networking",
+      "infrastructure"
+    ],
+    "type": "blog",
+    "url": "/blog/cilium-ebpf-kubernetes-networking#what-ebpf-is",
+    "date": "2026-06-19T00:00:00.000Z",
+    "section": "What eBPF Is"
+  },
+  {
+    "id": "blog/cilium-ebpf-kubernetes-networking#what-cilium-does",
+    "title": "What Is Cilium? A Beginner's Guide to Kubernetes Networking with eBPF",
+    "description": "What Cilium Does",
+    "body": "Cilium is an open-source networking, security, and observability tool built on eBPF. It replaces kube-proxy and your CNI plugin with eBPF-based alternatives. Here is what that means in practice.\n\nThe diagram above shows how Cilium covers multiple areas: replacing traditional networking (kube-proxy and CNI), adding security policies at layers 3 through 7, providing observability through Hubble, and supporting service mesh and runtime security use cases. The rest of this section walks through the features most relevant to replacing iptables-based Kubernetes networking.",
+    "tags": [
+      "kubernetes",
+      "networking",
+      "infrastructure"
+    ],
+    "type": "blog",
+    "url": "/blog/cilium-ebpf-kubernetes-networking#what-cilium-does",
+    "date": "2026-06-19T00:00:00.000Z",
+    "section": "What Cilium Does"
+  },
+  {
+    "id": "blog/cilium-ebpf-kubernetes-networking#1-performance-that-does-not-degrade",
+    "title": "What Is Cilium? A Beginner's Guide to Kubernetes Networking with eBPF",
+    "description": "1. Performance That Does Not Degrade",
+    "body": "Cilium replaces iptables with eBPF maps, which are kernel data structures designed for constant-time lookups. Adding more services does not slow down packet processing. The performance curve stays flat whether you have 10 services or 10,000.\n\nIt is worth noting that most teams never hit the scale where iptables becomes a real problem. If your cluster has fewer than 50 services and you are not experiencing latency issues, iptables is probably fine. Cilium's performance advantage only matters once you cross that threshold.",
+    "tags": [
+      "kubernetes",
+      "networking",
+      "infrastructure"
+    ],
+    "type": "blog",
+    "url": "/blog/cilium-ebpf-kubernetes-networking#1-performance-that-does-not-degrade",
+    "date": "2026-06-19T00:00:00.000Z",
+    "section": "1. Performance That Does Not Degrade"
+  },
+  {
+    "id": "blog/cilium-ebpf-kubernetes-networking#2-security-by-identity-instead-of-ip",
+    "title": "What Is Cilium? A Beginner's Guide to Kubernetes Networking with eBPF",
+    "description": "2. Security by Identity Instead of IP",
+    "body": "Standard Kubernetes NetworkPolicies are written against IP addresses or CIDR blocks. Pod IPs change constantly, which means policies that work today may break tomorrow after a restart or scale-up event.\n\nCilium lets you write policies against Kubernetes labels:\n\nThe policy says: only pods with `app: frontend` can talk to pods with `app: api` on port 8080. Pod restarts, scaling, and node failures do not invalidate it.\n\nThe tradeoff: CiliumNetworkPolicy is a custom resource that only Cilium understands. If you ever switch to a different CNI, your policies will not carry over.",
+    "tags": [
+      "kubernetes",
+      "networking",
+      "infrastructure"
+    ],
+    "type": "blog",
+    "url": "/blog/cilium-ebpf-kubernetes-networking#2-security-by-identity-instead-of-ip",
+    "date": "2026-06-19T00:00:00.000Z",
+    "section": "2. Security by Identity Instead of IP"
+  },
+  {
+    "id": "blog/cilium-ebpf-kubernetes-networking#3-l7-policies-without-sidecar-proxies",
+    "title": "What Is Cilium? A Beginner's Guide to Kubernetes Networking with eBPF",
+    "description": "3. L7 Policies Without Sidecar Proxies",
+    "body": "Normally, restricting traffic by HTTP path or method requires a service mesh sidecar like Envoy injected into every pod. Those sidecars consume CPU and memory and add latency to each request.\n\nCilium can inspect HTTP, gRPC, and Kafka traffic using a per-node Envoy proxy managed by the Cilium agent. The eBPF datapath steers matching traffic to the proxy for parsing, but the actual protocol inspection happens in userspace, not in the kernel. You can write application-aware policies without per-pod sidecars:\n\nThis blocks any HTTP request that is not a POST to `/api/v1/orders` or a GET to `/api/v1/healthz`, all without a sidecar.\n\nA honest caveat: L7 policies are one of Cilium's more complex features. They require the Cilium agent to inspect application-layer protocols, which adds some overhead (though less than a sidecar proxy). They also do not support every protocol. If your stack uses AMQP, MongoDB wire protocol, or other less common protocols, check whether Cilium supports them before depending on this feature.",
+    "tags": [
+      "kubernetes",
+      "networking",
+      "infrastructure"
+    ],
+    "type": "blog",
+    "url": "/blog/cilium-ebpf-kubernetes-networking#3-l7-policies-without-sidecar-proxies",
+    "date": "2026-06-19T00:00:00.000Z",
+    "section": "3. L7 Policies Without Sidecar Proxies"
+  },
+  {
+    "id": "blog/cilium-ebpf-kubernetes-networking#4-built-in-observability-with-hubble",
+    "title": "What Is Cilium? A Beginner's Guide to Kubernetes Networking with eBPF",
+    "description": "4. Built-in Observability with Hubble",
+    "body": "Cilium ships with Hubble, a tool that provides real-time visibility into network traffic. Hubble shows you which pods are talking to which services, how much traffic is flowing, and whether packets are being dropped.\n\nHubble also has a web UI with service dependency graphs like the one above. Each node is a service or pod, and the lines between them show which services are talking to each other. Green lines mean traffic is allowed, red means policy is blocking it. This is useful for understanding how your applications actually communicate, especially in microservices architectures where the flow of traffic is not always obvious from the code.",
+    "tags": [
+      "kubernetes",
+      "networking",
+      "infrastructure"
+    ],
+    "type": "blog",
+    "url": "/blog/cilium-ebpf-kubernetes-networking#4-built-in-observability-with-hubble",
+    "date": "2026-06-19T00:00:00.000Z",
+    "section": "4. Built-in Observability with Hubble"
+  },
+  {
+    "id": "blog/cilium-ebpf-kubernetes-networking#5-encryption-without-a-service-mesh",
+    "title": "What Is Cilium? A Beginner's Guide to Kubernetes Networking with eBPF",
+    "description": "5. Encryption Without a Service Mesh",
+    "body": "Cilium supports WireGuard-based encryption for pod-to-pod traffic. Enabling it takes one Helm flag:\n\nNo sidecars, no complex configuration, no extra CPU cost beyond WireGuard itself.\n\nThat said, most teams do not need in-cluster encryption. If your threat model does not include an attacker with access to your cluster network, this adds complexity for little benefit. It matters most in multi-tenant clusters or regulated environments.",
+    "tags": [
+      "kubernetes",
+      "networking",
+      "infrastructure"
+    ],
+    "type": "blog",
+    "url": "/blog/cilium-ebpf-kubernetes-networking#5-encryption-without-a-service-mesh",
+    "date": "2026-06-19T00:00:00.000Z",
+    "section": "5. Encryption Without a Service Mesh"
+  },
+  {
+    "id": "blog/cilium-ebpf-kubernetes-networking#trying-cilium-on-a-test-cluster",
+    "title": "What Is Cilium? A Beginner's Guide to Kubernetes Networking with eBPF",
+    "description": "Trying Cilium on a Test Cluster",
+    "body": "The easiest way to experiment with Cilium is to install it on a local cluster. kind (Kubernetes in Docker) works well for this.\n\nAfter installation, run the connectivity test to verify everything works:\n\nThis deploys test pods across nodes and validates DNS, pod-to-pod, pod-to-service, and external connectivity. If all tests pass, your cluster is running on Cilium.\n\nTo try Hubble's observability features, enable the UI:\n\nOpen `http://localhost:12000` to explore live network flows and dependency graphs.",
+    "tags": [
+      "kubernetes",
+      "networking",
+      "infrastructure"
+    ],
+    "type": "blog",
+    "url": "/blog/cilium-ebpf-kubernetes-networking#trying-cilium-on-a-test-cluster",
+    "date": "2026-06-19T00:00:00.000Z",
+    "section": "Trying Cilium on a Test Cluster"
+  },
+  {
+    "id": "blog/cilium-ebpf-kubernetes-networking#migrating-an-existing-cluster",
+    "title": "What Is Cilium? A Beginner's Guide to Kubernetes Networking with eBPF",
+    "description": "Migrating an Existing Cluster",
+    "body": "If you already have a cluster running with kube-proxy and a different CNI, here is the recommended migration path.\n\nFirst, install Cilium alongside your existing setup. It can run in parallel with kube-proxy during the validation phase. Set `kubeProxyReplacement=partial` to start.\n\nThen run `cilium connectivity test` to check for networking issues. If something fails, you can remove Cilium and the cluster should return to its previous state, provided you have not yet removed the original kube-proxy DaemonSet.\n\nOnce you are satisfied, enable full kube-proxy replacement and remove the original kube-proxy DaemonSet. This step is the riskiest: if you need to roll back after this point, you must re-enable kube-proxy manually and verify that Service IPs resolve correctly. Cilium's eBPF programs modify kernel-level datapath state that does not automatically revert when the Cilium DaemonSet is deleted. Test the rollback procedure on a non-production cluster first. Finally, enable Hubble for observability.\n\nA few things to watch for during migration:\nCilium requires Linux kernel 5.10 or newer for full feature support. Check your node kernel versions before starting.\nIf you use custom CNI configurations (macvlan, SR-IOV, custom routing), verify Cilium supports your use case.\nThe connectivity test suite is thorough but does not cover every possible workload. Run your own integration tests before cutting over production traffic.",
+    "tags": [
+      "kubernetes",
+      "networking",
+      "infrastructure"
+    ],
+    "type": "blog",
+    "url": "/blog/cilium-ebpf-kubernetes-networking#migrating-an-existing-cluster",
+    "date": "2026-06-19T00:00:00.000Z",
+    "section": "Migrating an Existing Cluster"
+  },
+  {
+    "id": "blog/cilium-ebpf-kubernetes-networking#when-cilium-is-not-the-right-answer",
+    "title": "What Is Cilium? A Beginner's Guide to Kubernetes Networking with eBPF",
+    "description": "When Cilium Is Not the Right Answer",
+    "body": "Cilium is a solid piece of infrastructure, but it is not the best choice for every situation.\nSmall clusters. If you have fewer than 20 nodes and straightforward networking needs, Flannel or Calico will serve you well. The operational overhead of Cilium is not justified at that scale.\nOlder Linux kernels. Cilium requires kernel 5.10+ for its full feature set. If you are stuck on an older enterprise distribution with a pinned kernel version, eBPF features will be limited or unavailable.\neBPF expertise is rare. Most day-to-day Cilium troubleshooting uses `cilium status`, `hubble observe`, and `cilium connectivity test` — standard tools that do not require deep eBPF knowledge. But when something goes wrong outside the happy path, debugging can require understanding Cilium-specific internals and eBPF program behavior. That expertise is not common. If your team is small and cannot afford a specialist, a simpler CNI reduces the risk of getting stuck on an obscure issue.\nThe \"it just works\" factor. Iptables-based networking is boring and well understood. Every Kubernetes operator knows how to debug it. Cilium's eBPF approach is less transparent, and its abstractions can obscure what is actually happening on the wire.",
+    "tags": [
+      "kubernetes",
+      "networking",
+      "infrastructure"
+    ],
+    "type": "blog",
+    "url": "/blog/cilium-ebpf-kubernetes-networking#when-cilium-is-not-the-right-answer",
+    "date": "2026-06-19T00:00:00.000Z",
+    "section": "When Cilium Is Not the Right Answer"
+  },
+  {
+    "id": "blog/cilium-ebpf-kubernetes-networking#key-takeaways",
+    "title": "What Is Cilium? A Beginner's Guide to Kubernetes Networking with eBPF",
+    "description": "Key Takeaways",
+    "body": "Kubernetes networking uses kube-proxy with iptables by default, which scales poorly beyond a few dozen services.\nCilium replaces both with eBPF, running packet processing in the kernel without the linear performance penalty of iptables.\nIt adds identity-based security policies, optional L7 inspection, built-in observability (Hubble), and WireGuard encryption. Not every team needs all of these.\nYou can try Cilium on a test cluster with one Helm command. The migration path for existing clusters is incremental and includes a connectivity test suite for validation.\nFor clusters on modern kernels that have outgrown iptables, Cilium solves a real problem. For small or simple clusters, the simpler default tooling is fine.",
+    "tags": [
+      "kubernetes",
+      "networking",
+      "infrastructure"
+    ],
+    "type": "blog",
+    "url": "/blog/cilium-ebpf-kubernetes-networking#key-takeaways",
+    "date": "2026-06-19T00:00:00.000Z",
+    "section": "Key Takeaways"
+  },
+  {
+    "id": "contact",
+    "title": "Get In Touch",
+    "description": "Open to freelance projects, full-time roles, and consulting engagements.",
+    "body": "Email: md.saminirtiza@gmail.com\nGitHub: https://github.com/samin-irtiza\nLinkedIn: https://linkedin.com/in/samin-irtiza",
+    "tags": [
+      "contact"
+    ],
+    "type": "contact",
+    "url": "/#contact"
+  }
+]
